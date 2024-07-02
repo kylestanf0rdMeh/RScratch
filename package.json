@@ -1,0 +1,12 @@
+{
+    "name": "rscratch",
+    "version": "3.0.0",
+    "description": "React from scratch",
+    "license": "MIT",
+    "repository": "kylestanf0rdmeh/RScratch",
+    "author": "kylestanf0rdmeh",
+    "main": "RScratch.js",
+    "keywords": [
+      "RScratch"
+    ]
+  }
