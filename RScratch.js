@@ -6,7 +6,7 @@
  * --UPDATE README
  */
 
-// I am currently only allowing 2 parameters with a rest parameter for children
+// createElement: Creates an element with type, props, and children
 function createElement(type, props, ...children) {
   return {
     type,
@@ -20,40 +20,36 @@ function createElement(type, props, ...children) {
   };
 }
 
-
-
+// createDom: Creates DOM nodes from fibers
 function createDom(fiber) {
   // Create DOM nodes (DOM is a tree of objects, making it possible for javascript to interact and manipulate web pages)
   const dom =
-    //Handling text element
-    element.type == "TEXT_ELEMENT"
+    // Handling text element
+    fiber.type == "TEXT_ELEMENT"
       ? document.createTextNode("")
-      : document.createElement(element.type);
+      : document.createElement(fiber.type);
 
-  //Assign element props to the node
+  // Assign element props to the node
   const isProperty = (key) => key !== "children";
-  Object.keys(element.props)
+  Object.keys(fiber.props)
     .filter(isProperty)
     .forEach((name) => {
-      dom[name] = element.props[name];
+      dom[name] = fiber.props[name];
     });
-  //Render each child node
+
+  // Render each child node
   return dom;
 }
 
-
-
-// For event listeners
+// Utility functions for DOM updates
 const isEvent = (key) => key.startsWith("on");
 const isProperty = (key) => key !== "children" && !isEvent(key);
 const isNew = (prev, next) => (key) => prev[key] !== next[key];
 const isGone = (prev, next) => (key) => !(key in next);
 
-
-
-// update the existing DOM node with the props that changed.
+// updateDom: Updates the DOM with new props
 function updateDom(dom, prevProps, nextProps) {
-  //Remove old or changed event listeners
+  // Remove old or changed event listeners
   Object.keys(prevProps)
     .filter(isEvent)
     .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
@@ -61,6 +57,7 @@ function updateDom(dom, prevProps, nextProps) {
       const eventType = name.toLowerCase().substring(2);
       dom.removeEventListener(eventType, prevProps[name]);
     });
+
   // Remove old properties
   Object.keys(prevProps)
     .filter(isProperty)
@@ -77,7 +74,7 @@ function updateDom(dom, prevProps, nextProps) {
       dom[name] = nextProps[name];
     });
 
-  //Add event listeners
+  // Add event listeners
   Object.keys(nextProps)
     .filter(isEvent)
     .filter(isNew(prevProps, nextProps))
@@ -87,24 +84,21 @@ function updateDom(dom, prevProps, nextProps) {
     });
 }
 
-
-
-// recursively append all the nodes to the dom.
+// commitRoot: Commits the root fiber to the DOM
 function commitRoot() {
   deletions.forEach(commitWork);
   commitWork(wipRoot.child);
-  // save a reference to that “last fiber tree we committed to the DOM”
+  // Save a reference to that “last fiber tree we committed to the DOM”
   currentRoot = wipRoot;
   wipRoot = null;
 }
 
-
-
+// commitWork: Commits a fiber to the DOM
 function commitWork(fiber) {
-  if (!fiber) {
-    return;
-  }
-  const domParentFiber = fiber.parent;
+  if (!fiber) return;
+
+  // Find the parent of the DOM Node
+  let domParentFiber = fiber.parent;
   while (!domParentFiber.dom) {
     domParentFiber = domParentFiber.parent;
   }
@@ -122,9 +116,7 @@ function commitWork(fiber) {
   commitWork(fiber.sibling);
 }
 
-
-
-// when removing a node we also need to keep going until we find a child with a DOM node.
+// commitDeletion: Removes a fiber from the DOM
 function commitDeletion(fiber, domParent) {
   if (fiber.dom) {
     domParent.removeChild(fiber.dom);
@@ -133,8 +125,7 @@ function commitDeletion(fiber, domParent) {
   }
 }
 
-
-
+// render: Initializes the root fiber and starts the work loop
 function render(element, container) {
   // Keep track of the root of fiber tree
   wipRoot = {
@@ -142,23 +133,19 @@ function render(element, container) {
     props: {
       children: [element],
     },
-    // a link to the old fiber, the fiber that we committed to the DOM in the previous commit phase.
+    // A link to the old fiber, the fiber that we committed to the DOM in the previous commit phase.
     alternate: currentRoot,
   };
   deletions = [];
   nextUnitOfWork = wipRoot;
 }
 
-
-
 let nextUnitOfWork = null;
 let currentRoot = null;
 let wipRoot = null;
 let deletions = null;
 
-
-
-//Breaking down the component into small unit, and each time after we finsih a unit, we will let the browser interrupt the rendering if anything else needs to be done.
+// workLoop: Processes units of work and commits the root
 function workLoop(deadline) {
   let shouldYield = false;
   while (nextUnitOfWork && !shouldYield) {
@@ -169,24 +156,15 @@ function workLoop(deadline) {
   if (!nextUnitOfWork && wipRoot) {
     commitRoot();
   }
+
   // We use requestIdleCallback to make a loop
-  // think of it as a setTimeout
+  // Think of it as a setTimeout
   requestIdleCallback(workLoop);
 }
 
-
-
 requestIdleCallback(workLoop);
 
-
-
-/**
- * Performs work and then returns nextUnitOfWork
- * add the element to the DOM
- * create the fibers for the element’s children
- * select the next unit of work
- * Using FiberTree, 1 fiber per element, each fiber = unitOfWork
- */
+// performUnitOfWork: Performs work on a fiber and returns the next unit of work
 function performUnitOfWork(fiber) {
   const isFunctionComponent = fiber.type instanceof Function;
   if (isFunctionComponent) {
@@ -196,7 +174,7 @@ function performUnitOfWork(fiber) {
   }
 
   // Returns next unit of work
-  // first try with the child, then with the sibling, then with the uncle, and so on.
+  // First try with the child, then with the sibling, then with the uncle, and so on.
   if (fiber.child) {
     return fiber.child;
   }
@@ -209,15 +187,60 @@ function performUnitOfWork(fiber) {
   }
 }
 
+let wipFiber = null;
+let hookIndex = null;
 
-
+// updateFunctionComponent: Updates a function component
 function updateFunctionComponent(fiber) {
+  wipFiber = fiber;
+  hookIndex = 0;
+  // Add a hooks array to the fiber to support calling useState several times in the same component. 
+  // And we keep track of the current hook index.
+  wipFiber.hooks = [];
   const children = [fiber.type(fiber.props)];
   reconcileChildren(fiber, children);
 }
 
+// useState: Hook to manage state in function components
+function useState(initial) {
+  // Check if we have an old hook. We check in the alternate of the fiber using the hook index.
+  const oldHook =
+    wipFiber.alternate &&
+    wipFiber.alternate.hooks &&
+    wipFiber.alternate.hooks[hookIndex];
 
+  // If we have old hook, we copy the state from the old hook to the new hook, if we don’t we initialize the state.
+  const hook = {
+    state: oldHook ? oldHook.state : initial,
+    queue: [],
+  };
 
+  // We get all the actions from the old hook queue, and then apply them one by one to the new hook state, so when we return the state it’s updated.
+  const actions = oldHook ? oldHook.queue : [];
+  actions.forEach((action) => {
+    hook.state = action(hook.state);
+  });
+
+  // Should also return a function to update the state, so we define a setState function that receives an action
+  const setState = (action) => {
+    hook.queue.push(action);
+    // Set a new work in progress root as the next unit of work so the work loop can start a new render phase
+    wipRoot = {
+      dom: currentRoot.dom,
+      props: currentRoot.props,
+      alternate: currentRoot,
+    };
+    nextUnitOfWork = wipRoot;
+    deletions = [];
+  };
+
+  // Then we add the new hook to the fiber, increment the hook index by one, and return the state.
+  wipFiber.hooks.push(hook);
+  hookIndex++;
+  return [hook.state, setState];
+}
+
+// updateHostComponent: Updates a host component
 function updateHostComponent(fiber) {
   if (!fiber.dom) {
     fiber.dom = createDom(fiber);
@@ -225,9 +248,7 @@ function updateHostComponent(fiber) {
   reconcileChildren(fiber, fiber.props.children);
 }
 
-
-
-// Here we will reconcile the old fibers with the new elements.
+// reconcileChildren: Reconciles old fibers with new elements
 function reconcileChildren(wipFiber, elements) {
   let index = 0;
   let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
@@ -235,11 +256,11 @@ function reconcileChildren(wipFiber, elements) {
 
   while (index < elements.length || oldFiber != null) {
     const element = elements[index];
-    const newFiber = null;
+    let newFiber = null;
 
     const sameType = oldFiber && element && element.type == oldFiber.type;
 
-    // if the old fiber and the new element have the same type, we can keep the DOM node and just update it with the new props
+    // If the old fiber and the new element have the same type, we can keep the DOM node and just update it with the new props
     if (sameType) {
       newFiber = {
         type: oldFiber.type,
@@ -250,7 +271,7 @@ function reconcileChildren(wipFiber, elements) {
         effectTag: "UPDATE",
       };
     }
-    // if the type is different and there is a new element, it means we need to create a new DOM node
+    // If the type is different and there is a new element, it means we need to create a new DOM node
     if (element && !sameType) {
       // Add this node
       newFiber = {
@@ -259,11 +280,11 @@ function reconcileChildren(wipFiber, elements) {
         dom: null,
         parent: wipFiber,
         alternate: null,
-        // for the case where the element needs a new DOM node we tag the new fiber
+        // For the case where the element needs a new DOM node we tag the new fiber
         effectTag: "PLACEMENT",
       };
     }
-    // if the types are different and there is an old fiber, we need to remove the old node
+    // If the types are different and there is an old fiber, we need to remove the old node
     if (oldFiber && !sameType) {
       oldFiber.effectTag = "DELETION";
       deletions.push(oldFiber);
@@ -278,20 +299,22 @@ function reconcileChildren(wipFiber, elements) {
   }
 }
 
-
-
 const RScratch = {
   createElement,
   render,
+  useState,
 };
 
-
-
-// when babel transpiles the JSX it will use the function we define.
 /** @jsx RScratch.createElement */
-function App(props) {
-  return <h1>Hi {props.name}</h1>;
+function Counter() {
+  const [state, setState] = RScratch.useState(1);
+  return (
+    <h1 onClick={() => setState((c) => c + 1)}>
+      Count: {state}
+    </h1>
+  );
 }
-const element = <App name="foo" />;
+
+const element = <Counter />;
 const container = document.getElementById("root");
 RScratch.render(element, container);
