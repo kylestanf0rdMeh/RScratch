@@ -1,11 +1,3 @@
-/**
- * TODO
- * --IMPLEMENT HOOKS
- * --REFACTOR
- * --CONCISE COMMENTS
- * --UPDATE README
- */
-
 // createElement: Creates an element with type, props, and children
 function createElement(type, props, ...children) {
   return {
