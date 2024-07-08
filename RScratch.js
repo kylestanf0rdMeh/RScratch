@@ -12,6 +12,16 @@ function createElement(type, props, ...children) {
   };
 }
 
+function createTextElement(text) {
+  return {
+    type: "TEXT_ELEMENT",
+    props: {
+      nodeValue: text,
+      children: [],
+    },
+  }
+}
+
 // createDom: Creates DOM nodes from fibers
 function createDom(fiber) {
   // Create DOM nodes (DOM is a tree of objects, making it possible for javascript to interact and manipulate web pages)
