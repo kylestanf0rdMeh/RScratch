@@ -104,4 +104,4 @@ RScratch.render(element, container);
 
 ## Conclusion
 
-Congratulations! You have successfully created and rendered a component using RScratch. This tutorial covered the basics of creating elements, rendering them to the DOM, and managing state with hooks. Feel free to explore and build more complex components with RScratch. Happy coding!
+There you have it, a 'bare-bones' so to say React. I hope the tutorial proved succesful in enabling you to make RScratch code, and learn along the way as well. Please look at [RScratch.js](RScratch.js) to follow the code along, I left comments in it for a reason!
